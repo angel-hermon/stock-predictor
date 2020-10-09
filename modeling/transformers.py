@@ -1,6 +1,10 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import FunctionTransformer 
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.preprocessing import StandardScaler,MinMaxScaler
+
+from sklearn.base import BaseEstimator,TransformerMixin
+
 
 Volatility_group_labels = ['Low', 'Medium', 'High']
 
@@ -69,8 +73,12 @@ def calculate_days_close_above_30_moving_avarage(dataframe):
     dataframe['Days_close_above_30_moving_avarage'] = is_close_above_30_moving_avarage_cumsum.sub(is_close_above_30_moving_avarage_cumsum.mask(dataframe['Is_close_above_30_moving_avarage'] != 0).ffill(), fill_value=0).astype(int)
     return dataframe
 
+def column_selector(dataframe,cols):
+    dataframe = dataframe.copy()
+    return dataframe[cols]
+
 def get_transformer_func_list():
-    return [(func_tuple[0], FunctionTransformer(func_tuple[1])) for func_tuple in [ \
+    return [(func_tuple[0], FunctionTransformer(func_tuple[1],validate=False)) for func_tuple in [ \
             ('calculate_volatility', calculate_voletility), \
             ('convert_to_float', convert_to_float), \
             ('convert_date', convert_date), \
@@ -82,3 +90,32 @@ def get_transformer_func_list():
             ('set_is_close_above_30_moving_avarage_diff', set_is_close_above_30_moving_avarage_diff), \
             ('calculate_days_close_below_30_moving_avarage', calculate_days_close_below_30_moving_avarage), \
             ('calculate_days_close_above_30_moving_avarage', calculate_days_close_above_30_moving_avarage)]]
+
+class CustomTransformerScaler(BaseEstimator, TransformerMixin):
+    def __init__(self,method='standard'):
+        self.method=method
+        self.scaler = None
+
+    def fit(self, X, y=None, **kwargs):
+        if (self.method=='standard'):
+            self.scaler = StandardScaler()
+        elif(self.method=='minmax'):
+            self.scaler = MinMaxScaler()
+
+        self.scaler.fit(X)  
+        return self
+
+
+    def transform(self, X, y=None, **kwargs):
+        X = X.copy()
+        columns_names = X.columns
+        scaled_data = self.scaler.transform(X)
+        scaled_data_df = pd.DataFrame(scaled_data,columns=columns_names)
+        return scaled_data_df
+            
+
+
+    def fit_transform(self, X, y=None, **kwargs):
+
+        self = self.fit(X, y)
+        return self.transform(X, y)
